@@ -32,8 +32,10 @@ static uint32_t g_fac_us = 0;       /* us延时倍乘数 */
 /* 如果SYS_SUPPORT_OS定义了,说明要支持OS了(不限于UCOS) */
 #if SYS_SUPPORT_OS
 
-/* 添加公共头文件 ( ucos需要用到) */
-#include "includes.h"
+/* 添加公共头文件 (FreeRTOS 需要用到) */ 
+#include "FreeRTOS.h" 
+#include "task.h"
+
 extern void xPortSysTickHandler(void);
 
 /**
@@ -88,7 +90,6 @@ void delay_us(uint32_t nus)
     uint32_t told, tnow, tcnt = 0;
     uint32_t reload = SysTick->LOAD;        /* LOAD的值 */
     ticks = nus * g_fac_us;                 /* 需要的节拍数 */
-    delay_osschedlock();                    /* 阻止OS调度，防止打断us延时 */
     told = SysTick->VAL;                    /* 刚进入时的计数器值 */
     while (1)
     {
@@ -110,7 +111,6 @@ void delay_us(uint32_t nus)
             }
         }
     }
-    delay_osschedunlock();                  /* 恢复OS调度 */
 } 
 
 /**
@@ -120,15 +120,11 @@ void delay_us(uint32_t nus)
  */
 void delay_ms(uint16_t nms)
 {
-    if (delay_osrunning && delay_osintnesting == 0)     /* 如果OS已经在跑了,并且不是在中断里面(中断里面不能任务调度) */
-    {
-        if (nms >= g_fac_ms)                            /* 延时的时间大于OS的最少时间周期 */
-        { 
-            delay_ostimedly(nms / g_fac_ms);            /* OS延时 */
-        }
-        nms %= g_fac_ms;                                /* OS已经无法提供这么小的延时了,采用普通方式延时 */
-    }                                        
-    delay_us((uint32_t)(nms * 1000));                   /* 普通方式延时 */
+    uint32_t i; 
+	for (i=0; i<nms; i++) 
+	{ 
+		delay_us(1000); 
+	}
 }
 
 #else  /* 不使用OS时, 用以下代码 */
